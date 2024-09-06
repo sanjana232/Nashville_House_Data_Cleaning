@@ -1,224 +1,37 @@
-# data-cleaning-sql
-/*Cleaning Data in SQL Queries*/
-Select *
-From PortfolioProject.dbo.NashvilleHousing
+Situation:
+I was tasked with cleaning a dataset that had multiple issues, such as inconsistencies in data formats, missing values, duplicates, and irrelevant columns. The data in its raw form was unsuitable for analysis or reporting. Ensuring that the data was clean and well-organized was critical for accurate downstream analysis and decision-making.
 
---------------------------------------------------------------------------------------------------------------------------
+Task:
+The objective was to clean the dataset using SQL. This involved tasks such as standardizing date formats, handling missing values, breaking down addresses into individual columns, renaming columns, removing duplicates, and deleting irrelevant columns. The goal was to transform the raw, unstructured data into a structured and clean format that could be easily analyzed.
 
--- Standardize Date Format
+Action:
+I implemented the data cleaning process using the following SQL steps:
 
+Standardizing Date Formats:
 
-Select saleDateConverted, CONVERT(Date,SaleDate)
-From PortfolioProject.dbo.NashvilleHousing
+I standardized the date formats across the dataset to ensure consistency. This likely involved using SQL functions to convert dates to a common format.
+Handling Missing Values:
 
+I identified and handled missing values, possibly by filling them in with default values, using previous entries, or flagging them for further inspection.
+Breaking Down Addresses:
 
-Update NashvilleHousing
-SET SaleDate = CONVERT(Date,SaleDate)
+I broke down complex address fields into individual components, such as street, city, state, and postal code, making it easier to filter and analyze location data.
+Renaming Columns:
 
--- If it doesn't Update properly
+I renamed columns to more meaningful and consistent names, improving readability and ensuring that column names followed a standardized naming convention.
+Removing Duplicates:
 
-ALTER TABLE NashvilleHousing
-Add SaleDateConverted Date;
+I identified and removed duplicate rows from the dataset to prevent redundant data from skewing the results of any analysis.
+Deleting Irrelevant Columns:
 
-Update NashvilleHousing
-SET SaleDateConverted = CONVERT(Date,SaleDate)
+I removed columns that were unnecessary or irrelevant to the analysis, reducing clutter and focusing on the most pertinent data.
+Result:
+The result of the work was a clean, well-structured dataset that was ready for analysis. By standardizing formats, filling in missing values, and removing inconsistencies, you ensured that the data was reliable and accurate. This clean dataset could now be used for meaningful analysis, leading to better insights and more informed decision-making.
 
 
- --------------------------------------------------------------------------------------------------------------------------
 
--- Populate Property Address data
 
-Select *
-From PortfolioProject.dbo.NashvilleHousing
---Where PropertyAddress is null
-order by ParcelID
 
-Select a.ParcelID, a.PropertyAddress, b.ParcelID, b.PropertyAddress, ISNULL(a.PropertyAddress,b.PropertyAddress)
-From PortfolioProject.dbo.NashvilleHousing a
-JOIN PortfolioProject.dbo.NashvilleHousing b
-	on a.ParcelID = b.ParcelID
-	AND a.[UniqueID ] <> b.[UniqueID ]
-Where a.PropertyAddress is null
-
-Update a
-SET PropertyAddress = ISNULL(a.PropertyAddress,b.PropertyAddress)
-From PortfolioProject.dbo.NashvilleHousing a
-JOIN PortfolioProject.dbo.NashvilleHousing b
-	on a.ParcelID = b.ParcelID
-	AND a.[UniqueID ] <> b.[UniqueID ]
-Where a.PropertyAddress is null
-
---------------------------------------------------------------------------------------------------------------------------
-
--- Breaking out Address into Individual Columns (Address, City, State)
-
-Select PropertyAddress
-From PortfolioProject.dbo.NashvilleHousing
---Where PropertyAddress is null
---order by ParcelID
-
-SELECT
-SUBSTRING(PropertyAddress, 1, CHARINDEX(',', PropertyAddress) -1 ) as Address
-, SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress) + 1 , LEN(PropertyAddress)) as Address
-
-From PortfolioProject.dbo.NashvilleHousing
-
-ALTER TABLE NashvilleHousing
-Add PropertySplitAddress Nvarchar(255);
-
-Update NashvilleHousing
-SET PropertySplitAddress = SUBSTRING(PropertyAddress, 1, CHARINDEX(',', PropertyAddress) -1 )
-
-ALTER TABLE NashvilleHousing
-Add PropertySplitCity Nvarchar(255);
-
-Update NashvilleHousing
-SET PropertySplitCity = SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress) + 1 , LEN(PropertyAddress))
-
-
-Select *
-From PortfolioProject.dbo.NashvilleHousing
-
-Select OwnerAddress
-From PortfolioProject.dbo.NashvilleHousing
-
-Select
-PARSENAME(REPLACE(OwnerAddress, ',', '.') , 3)
-,PARSENAME(REPLACE(OwnerAddress, ',', '.') , 2)
-,PARSENAME(REPLACE(OwnerAddress, ',', '.') , 1)
-From PortfolioProject.dbo.NashvilleHousing
-
-ALTER TABLE NashvilleHousing
-Add OwnerSplitAddress Nvarchar(255);
-
-Update NashvilleHousing
-SET OwnerSplitAddress = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 3)
-
-ALTER TABLE NashvilleHousing
-Add OwnerSplitCity Nvarchar(255);
-
-Update NashvilleHousing
-SET OwnerSplitCity = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 2)
-
-ALTER TABLE NashvilleHousing
-Add OwnerSplitState Nvarchar(255);
-
-Update NashvilleHousing
-SET OwnerSplitState = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 1)
-
-Select *
-From PortfolioProject.dbo.NashvilleHousing
-
---------------------------------------------------------------------------------------------------------------------------
-
--- Change Y and N to Yes and No in "Sold as Vacant" field
-
-Select Distinct(SoldAsVacant), Count(SoldAsVacant)
-From PortfolioProject.dbo.NashvilleHousing
-Group by SoldAsVacant
-order by 2
-
-Select SoldAsVacant
-, CASE When SoldAsVacant = 'Y' THEN 'Yes'
-	   When SoldAsVacant = 'N' THEN 'No'
-	   ELSE SoldAsVacant
-	   END
-From PortfolioProject.dbo.NashvilleHousing
-
-Update NashvilleHousing
-SET SoldAsVacant = CASE When SoldAsVacant = 'Y' THEN 'Yes'
-	   When SoldAsVacant = 'N' THEN 'No'
-	   ELSE SoldAsVacant
-	   END
-
------------------------------------------------------------------------------------------------------------------------------------------------------------
-
--- Remove Duplicates
-
-WITH RowNumCTE AS(
-Select *,
-	ROW_NUMBER() OVER (
-	PARTITION BY ParcelID,
-				 PropertyAddress,
-				 SalePrice,
-				 SaleDate,
-				 LegalReference
-				 ORDER BY
-					UniqueID
-					) row_num
-
-From PortfolioProject.dbo.NashvilleHousing
---order by ParcelID
-)
-Select *
-From RowNumCTE
-Where row_num > 1
-Order by PropertyAddress
-
-
-
-Select *
-From PortfolioProject.dbo.NashvilleHousing
-
----------------------------------------------------------------------------------------------------------
-
--- Delete Unused Columns
-
-Select *
-From PortfolioProject.dbo.NashvilleHousing
-
-ALTER TABLE PortfolioProject.dbo.NashvilleHousing
-DROP COLUMN OwnerAddress, TaxDistrict, PropertyAddress, SaleDate
-
------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------
-
---- Importing Data using OPENROWSET and BULK INSERT	
-
---  More advanced and looks cooler, but have to configure server appropriately to do correctly
---  Wanted to provide this in case you wanted to try it
-
-
---sp_configure 'show advanced options', 1;
---RECONFIGURE;
---GO
---sp_configure 'Ad Hoc Distributed Queries', 1;
---RECONFIGURE;
---GO
-
-
---USE PortfolioProject 
-
---GO 
-
---EXEC master.dbo.sp_MSset_oledb_prop N'Microsoft.ACE.OLEDB.12.0', N'AllowInProcess', 1 
-
---GO 
-
---EXEC master.dbo.sp_MSset_oledb_prop N'Microsoft.ACE.OLEDB.12.0', N'DynamicParameters', 1 
-
---GO 
-
-
----- Using BULK INSERT
-
---USE PortfolioProject;
---GO
---BULK INSERT nashvilleHousing FROM 'C:\Temp\SQL Server Management Studio\Nashville Housing Data for Data Cleaning Project.csv'
---   WITH (
---      FIELDTERMINATOR = ',',
---      ROWTERMINATOR = '\n'
---);
---GO
-
-
----- Using OPENROWSET
---USE PortfolioProject;
---GO
---SELECT * INTO nashvilleHousing
---FROM OPENROWSET('Microsoft.ACE.OLEDB.12.0',
---    'Excel 12.0; Database=C:\Users\alexf\OneDrive\Documents\SQL Server Management Studio\Nashville Housing Data for Data Cleaning Project.csv', [Sheet1$]);
---GO
 
 
 
